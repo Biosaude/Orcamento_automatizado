@@ -2,9 +2,14 @@
 
 Base do MVP empresarial `biosaude-opme-automation`, preparada no repositório
 `Biosaude/Orcamento_automatizado`. Python 3.12, FastAPI e Streamlit. A entrega
-contém API de saúde, navegação dos oito módulos, contratos de domínio e camada
-de conexão PostgreSQL/Supabase; não há persistência de entidades, cálculos
-financeiros, aprovação ou envio de orçamentos.
+contém API de saúde, navegação dos oito módulos, contratos de domínio, conexão
+PostgreSQL/Supabase e cadastros autenticados de hospitais/produtos por empresa.
+Não há cálculos financeiros, aprovação ou envio de orçamentos.
+
+Configuração de Supabase Auth, perfis e rotas `/api/v1` em
+[autenticação e cadastros](docs/auth-catalog.md). Os vínculos empresariais devem
+ser provisionados por administrador autorizado; sem configuração e vínculo o
+acesso operacional é negado. A UI continua informativa, sem integração com CRUD.
 
 ## Instalação
 
@@ -110,7 +115,7 @@ sensível nem remove arquivos já rastreados: revisar o diff antes de cada commi
 
 ## Pendências deliberadas
 
-Receber o simulador e modelos oficiais; implementar autenticação, autorização,
-RLS e persistência por empresa; definir migrations e auditoria; criar adaptadores
+Receber o simulador e modelos oficiais; auditar RLS e grants existentes no Supabase;
+evoluir persistência de solicitações, auditoria e observabilidade; criar adaptadores
 externos em tarefas autorizadas separadas. Não usar esta estrutura para operação
 real ou armazenamento de dados de pacientes.
