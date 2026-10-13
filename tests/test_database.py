@@ -18,7 +18,6 @@ HEALTH_HEADERS = {"X-Database-Health-Token": HEALTH_TOKEN}
 def configured(**kwargs):
     return Settings(_env_file=None, database_url=URL, **kwargs)
 
-
 def test_no_configuration_never_creates_engine(monkeypatch):
     factory = MagicMock()
     monkeypatch.setattr("backend.app.core.database.create_engine", factory)
@@ -28,27 +27,46 @@ def test_no_configuration_never_creates_engine(monkeypatch):
     factory.assert_not_called()
 
 
-def test_engine_uses_verified_tls_bounded_pool_and_psycopg(monkeypatch):
+
+def test_engine_uses_verified_tls_bounded_pool_and_psycopg(
+    monkeypatch, tmp_path
+):
+    ca_file = tmp_path / "synthetic-ca.crt"
+    ca_file.write_text("synthetic-test-certificate", encoding="utf-8")
+
     factory = MagicMock()
-    monkeypatch.setattr("backend.app.core.database.create_engine", factory)
-    database = Database(configured())
+    monkeypatch.setattr(
+        "backend.app.core.database.create_engine",
+        factory,
+    )
+
+    database = Database(
+        configured(database_ssl_root_cert=str(ca_file))
+    )
+
     args, options = factory.call_args
+
     assert args[0].drivername == "postgresql+psycopg"
     assert "synthetic_password" not in repr(args[0])
+
     assert options["connect_args"] == {
         "sslmode": "verify-full",
-        "sslrootcert": "/etc/ssl/certs/ca-certificates.crt",
+        "sslrootcert": str(ca_file),
         "connect_timeout": 5,
         "options": "-c statement_timeout=5000",
         "prepare_threshold": None,
     }
+
     assert options["echo"] is False
     assert options["hide_parameters"] is True
     assert options["pool_pre_ping"] is True
     assert options["max_overflow"] == 0
+
     factory.return_value.connect.assert_not_called()
+
     database.dispose()
     factory.return_value.dispose.assert_called_once()
+
 
 
 @pytest.mark.parametrize(
@@ -74,13 +92,26 @@ def test_missing_ca_is_rejected():
         Database(configured(database_ssl_root_cert="/nonexistent/synthetic-ca.crt"))
 
 
-def test_real_driver_handles_unreachable_database_without_exposing_details():
-    database = Database(configured(database_connect_timeout=1))
+
+def test_real_driver_handles_unreachable_database_without_exposing_details(
+    tmp_path
+):
+    ca_file = tmp_path / "synthetic-ca.crt"
+    ca_file.write_text("synthetic-test-certificate", encoding="utf-8")
+
+    database = Database(
+        configured(
+            database_connect_timeout=1,
+            database_ssl_root_cert=str(ca_file),
+        )
+    )
+
     try:
         assert database.engine.dialect.driver == "psycopg"
         assert database.probe() is False
     finally:
         database.dispose()
+
 
 
 def test_probe_executes_only_select_and_closes_connection():
