@@ -1,6 +1,12 @@
 # Autenticação e cadastros por empresa
 
-As rotas operacionais usam `/api/v1`. `/health` e o diagnóstico protegido de
+As rotas operacionais usam `/api/v1` e ficam desabilitadas por padrão.
+Apenas definir `BIOSAUDE_SUPABASE_URL` não habilita os cadastros.
+`BIOSAUDE_CATALOG_ENABLED=true` deve ser configurado somente após auditoria
+autorizada da proteção de acesso direto ao banco (RLS/grants/PostgREST).
+Sem essa habilitação, as rotas não são registradas nem aparecem no OpenAPI;
+retornam 404. Essa flag é um controle de implantação, não cria políticas nem
+comprova por si só que a auditoria foi feita. `/health` e o diagnóstico protegido de
 banco mantêm o contrato anterior. Os seis modelos ORM, a revisão Alembic existente
 e a configuração PostgreSQL/TLS não são alterados por este módulo.
 
@@ -129,3 +135,13 @@ Não executar migrations como parte do startup ou dos testes. `uv run alembic ch
 requer acesso ao banco alvo previamente autorizado; não é evidência produzida por
 SQLite ou por schema sintético criado nos testes. Nenhuma migration foi executada
 por este módulo.
+
+## Índice de autenticação
+
+A revisão aditiva `8c41e2f67b90` prepara um índice não único em
+`users.identity_subject`, compatível com a consulta sem seletor de empresa.
+Não modifica colunas, dados ou constraints, nem reescreve os comandos da revisão
+`2bfff13426c5`. A aplicação dessa nova revisão no Supabase é uma operação
+separada, que requer autorização e planejamento de bloqueios em tabelas grandes.
+O startup não aplica migrations. O índice é declarado também na metadata ORM
+para manter o contrato com o Alembic.

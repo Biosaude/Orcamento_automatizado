@@ -32,7 +32,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.token_verifier = TokenVerifier(resolved_settings)
     app.include_router(router)
-    app.include_router(catalog_router)
+    if resolved_settings.catalog_enabled:
+        app.include_router(catalog_router)
     return app
 
 

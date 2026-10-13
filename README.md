@@ -9,7 +9,9 @@ Não há cálculos financeiros, aprovação ou envio de orçamentos.
 Configuração de Supabase Auth, perfis e rotas `/api/v1` em
 [autenticação e cadastros](docs/auth-catalog.md). Os vínculos empresariais devem
 ser provisionados por administrador autorizado; sem configuração e vínculo o
-acesso operacional é negado. A UI continua informativa, sem integração com CRUD.
+acesso operacional é negado. Os cadastros são desabilitados por padrão;
+habilitar `BIOSAUDE_CATALOG_ENABLED=true` somente após auditar RLS/grants e
+acessos diretos ao banco. A UI continua informativa, sem integração com CRUD.
 
 ## Instalação
 

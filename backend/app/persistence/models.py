@@ -1,4 +1,3 @@
-
 """Modelos de persistência PostgreSQL da plataforma Biosaúde."""
 
 import uuid
@@ -9,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Numeric,
     String,
     UniqueConstraint,
@@ -48,6 +48,7 @@ class UserORM(Base):
     __tablename__ = "users"
 
     __table_args__ = (
+        Index("ix_users_identity_subject", "identity_subject"),
         UniqueConstraint(
             "company_id",
             "identity_subject",
@@ -238,13 +239,11 @@ class QuoteRequestORM(Base):
         nullable=True,
     )
 
-    
     company: Mapped["CompanyORM"] = relationship()
 
     hospital: Mapped["HospitalORM"] = relationship(
         viewonly=True,
     )
-
 
 
 class QuoteItemORM(Base):

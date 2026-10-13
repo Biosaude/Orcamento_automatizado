@@ -18,6 +18,7 @@ HEALTH_HEADERS = {"X-Database-Health-Token": HEALTH_TOKEN}
 def configured(**kwargs):
     return Settings(_env_file=None, database_url=URL, **kwargs)
 
+
 def test_no_configuration_never_creates_engine(monkeypatch):
     factory = MagicMock()
     monkeypatch.setattr("backend.app.core.database.create_engine", factory)
@@ -27,10 +28,7 @@ def test_no_configuration_never_creates_engine(monkeypatch):
     factory.assert_not_called()
 
 
-
-def test_engine_uses_verified_tls_bounded_pool_and_psycopg(
-    monkeypatch, tmp_path
-):
+def test_engine_uses_verified_tls_bounded_pool_and_psycopg(monkeypatch, tmp_path):
     ca_file = tmp_path / "synthetic-ca.crt"
     ca_file.write_text("synthetic-test-certificate", encoding="utf-8")
 
@@ -40,9 +38,7 @@ def test_engine_uses_verified_tls_bounded_pool_and_psycopg(
         factory,
     )
 
-    database = Database(
-        configured(database_ssl_root_cert=str(ca_file))
-    )
+    database = Database(configured(database_ssl_root_cert=str(ca_file)))
 
     args, options = factory.call_args
 
@@ -68,7 +64,6 @@ def test_engine_uses_verified_tls_bounded_pool_and_psycopg(
     factory.return_value.dispose.assert_called_once()
 
 
-
 @pytest.mark.parametrize(
     "url",
     [
@@ -92,10 +87,7 @@ def test_missing_ca_is_rejected():
         Database(configured(database_ssl_root_cert="/nonexistent/synthetic-ca.crt"))
 
 
-
-def test_real_driver_handles_unreachable_database_without_exposing_details(
-    tmp_path
-):
+def test_real_driver_handles_unreachable_database_without_exposing_details(tmp_path):
     ca_file = tmp_path / "synthetic-ca.crt"
     ca_file.write_text("synthetic-test-certificate", encoding="utf-8")
 
@@ -111,7 +103,6 @@ def test_real_driver_handles_unreachable_database_without_exposing_details(
         assert database.probe() is False
     finally:
         database.dispose()
-
 
 
 def test_probe_executes_only_select_and_closes_connection():

@@ -151,7 +151,9 @@ def catalog(monkeypatch):
     def headers(role="operator", **claims):
         return {"Authorization": "Bearer " + token(subjects[role], **claims)}
 
-    app = create_app(Settings(_env_file=None, supabase_url=ISSUER.removesuffix("/auth/v1")))
+    app = create_app(
+        Settings(_env_file=None, catalog_enabled=True, supabase_url=ISSUER.removesuffix("/auth/v1"))
+    )
     with TestClient(app) as client:
         client.app.state.database.engine = engine
         client.app.state.database.sessions = sessions
@@ -395,7 +397,7 @@ def test_jwks_destination_is_fixed_and_cached(catalog):
 
 
 def test_unconfigured_auth_fails_closed():
-    with TestClient(create_app(Settings(_env_file=None))) as client:
+    with TestClient(create_app(Settings(_env_file=None, catalog_enabled=True))) as client:
         assert client.get("/api/v1/products").status_code == 401
         assert (
             client.get(
