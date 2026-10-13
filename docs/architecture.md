@@ -27,17 +27,20 @@ servidores, testes e comandos. Banco é opcional para desenvolver/testar; a cone
 
 `Company` representa a empresa. Usuário, produto, hospital, solicitação e item
 de orçamento carregam `company_id`. `TenantRepository[T]` exige esse escopo em
-todas as operações. Há camada de conexão e diagnóstico SELECT 1, mas não há persistência de entidades,
-migrations, autenticação nem RLS implementados. O escopo deverá vir da identidade verificada no backend; IDs
-fornecidos pelo cliente não autorizam acesso. Relações hospital/solicitação e
-produto/item deverão ser validadas no mesmo escopo. Isolamento só poderá ser
-declarado após testes negativos entre empresas e aplicação de políticas no banco.
+todas as operações. A camada de conexão, os seis modelos ORM e a revisão Alembic inicial são
+preservados. Hospitais e produtos têm cadastros autenticados conforme
+`auth-catalog.md`. O escopo vem do vínculo da identidade verificada no banco;
+IDs fornecidos pelo cliente não autorizam acesso. Relações hospital/solicitação e
+produto/item deverão ser validadas no mesmo escopo. Os testes negativos cobrem isolamento entre empresas na API de cadastros.
+Proteção de acesso direto ao banco/PostgREST depende de grants e RLS existentes,
+que não são criados nem alterados por esta entrega.
 
 ## Provedores futuros
 
 `Settings` reserva opções para PostgreSQL/Supabase, SMTP Locaweb, OpenAI e
 Twilio. Campos sensíveis usam `SecretStr`. PostgreSQL tem engine lazy e diagnóstico explícito; consultar `database.md`.
-Os outros provedores continuam sem clientes ou habilitação automática. Não implementar envio nesta tarefa. Os futuros adaptadores deverão
+Supabase Auth tem verificação JWT/JWKS explícita. Os demais provedores
+continuam sem clientes ou habilitação automática. Não implementar envio nesta tarefa. Os futuros adaptadores deverão
 usar TLS, tratamento de falhas, timeouts e auditoria sem conteúdo confidencial.
 
 A identificação da tabela São Camilo não define valores nem critérios financeiros.
@@ -47,6 +50,22 @@ A política de modelos PDF ainda depende dos documentos oficiais. Consultar
 ## Limites de produção
 
 Esta entrega prepara desenvolvimento local/cloud, não uma implantação SaaS.
-Autenticação, RLS, armazenamento protegido, migrations, auditoria persistente,
-observabilidade e políticas de retenção exigem etapas posteriores. Não expor
+Autenticação e cadastros estão implementados no backend; configuração externa
+do provedor e auditoria de RLS/grants permanecem necessárias. Armazenamento
+protegido, auditoria persistente, observabilidade e políticas de retenção exigem
+etapas posteriores. Não expor
 os serviços na Internet como produto operacional. Os scripts usam loopback.
+
+## Camada operacional de autenticação e cadastros
+
+`api/catalog.py` implementa rotas `/api/v1` de hospitais/produtos com contratos
+validados em `api/catalog_schemas.py`. `core/auth.py` verifica JWTs assimétricos
+do Supabase Auth e resolve o vínculo empresarial e perfil em `UserORM`.
+Os seis modelos em `persistence` e a revisão Alembic existente são preservados.
+Consultas e alterações são limitadas à empresa autorizada; não há CRUD de
+usuários/empresas. Consulte `auth-catalog.md` para contratos, configuração,
+perfis, bloqueio de duplicidades e limites de implantação.
+
+A aplicação não cria políticas RLS ou grants no Supabase; o isolamento desta
+camada não comprova a proteção de PostgREST ou acesso SQL externo. Essas
+configurações existentes precisam de auditoria autorizada antes da implantação.

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     )
 
     environment: Literal["development", "test", "production"] = "development"
+    # Habilitar somente após auditoria autorizada de grants/RLS e acessos externos.
+    catalog_enabled: bool = False
     database_url: SecretStr | None = None
     database_health_token: SecretStr | None = None
     database_ssl_root_cert: str = "/etc/ssl/certs/ca-certificates.crt"
