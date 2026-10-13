@@ -11,6 +11,8 @@ from backend.app.core.database import Database, DatabaseConfigurationError, get_
 from backend.app.main import create_app
 
 URL = "postgresql://synthetic_user:synthetic_password@127.0.0.1:1/synthetic_db"
+HEALTH_TOKEN = "synthetic-health-token"
+HEALTH_HEADERS = {"X-Database-Health-Token": HEALTH_TOKEN}
 
 
 def configured(**kwargs):
@@ -93,13 +95,15 @@ def test_probe_executes_only_select_and_closes_connection():
 
 
 def test_probe_failure_returns_generic_status():
-    with TestClient(create_app(Settings(_env_file=None))) as client:
+    with TestClient(
+        create_app(Settings(_env_file=None, database_health_token=HEALTH_TOKEN))
+    ) as client:
         database = client.app.state.database
         database.engine = MagicMock()
         database.engine.connect.side_effect = OperationalError(
             "synthetic-secret-sql", {}, Exception("synthetic-password")
         )
-        response = client.get("/health/database")
+        response = client.get("/health/database", headers=HEALTH_HEADERS)
         assert response.status_code == 503
         assert response.json() == {"status": "unavailable"}
         assert "synthetic" not in response.text
@@ -107,14 +111,68 @@ def test_probe_failure_returns_generic_status():
 
 
 def test_database_health_success_and_shutdown():
-    with TestClient(create_app(Settings(_env_file=None))) as client:
+    with TestClient(
+        create_app(Settings(_env_file=None, database_health_token=HEALTH_TOKEN))
+    ) as client:
         engine = MagicMock()
         client.app.state.database.engine = engine
         connection = engine.connect.return_value.__enter__.return_value
         connection.execute.return_value.scalar_one.return_value = 1
-        assert client.get("/health/database").json() == {"status": "ok"}
-        assert client.get("/health/database").status_code == 200
+        assert client.get("/health/database", headers=HEALTH_HEADERS).json() == {"status": "ok"}
+        assert client.get("/health/database", headers=HEALTH_HEADERS).status_code == 200
     engine.dispose.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "configured_token,headers",
+    [
+        (None, {}),
+        (None, HEALTH_HEADERS),
+        ("", HEALTH_HEADERS),
+        (HEALTH_TOKEN, {}),
+        (HEALTH_TOKEN, {"X-Database-Health-Token": "wrong-synthetic-token"}),
+        (HEALTH_TOKEN, {"X-Forwarded-For": "127.0.0.1"}),
+    ],
+)
+def test_database_health_denies_unauthorized_requests_without_probing(configured_token, headers):
+    with TestClient(
+        create_app(Settings(_env_file=None, database_health_token=configured_token))
+    ) as client:
+        probe = MagicMock()
+        client.app.state.database.probe = probe
+        response = client.get("/health/database", headers=headers)
+        assert response.status_code == 403
+        assert response.json() == {"detail": "Acesso negado"}
+        probe.assert_not_called()
+        assert client.get("/health").status_code == 200
+
+
+def test_authorized_database_health_reports_unconfigured_database():
+    with TestClient(
+        create_app(Settings(_env_file=None, database_health_token=HEALTH_TOKEN))
+    ) as client:
+        response = client.get("/health/database", headers=HEALTH_HEADERS)
+        assert response.status_code == 503
+        assert response.json() == {"status": "unavailable"}
+        assert HEALTH_TOKEN not in response.text
+
+
+def test_health_token_is_masked_and_service_role_setting_remains_compatible(monkeypatch):
+    monkeypatch.setenv("BIOSAUDE_DATABASE_HEALTH_TOKEN", HEALTH_TOKEN)
+    monkeypatch.setenv("BIOSAUDE_SUPABASE_SERVICE_ROLE_KEY", "synthetic-legacy-key")
+    settings = Settings(_env_file=None)
+    assert settings.database_health_token.get_secret_value() == HEALTH_TOKEN
+    assert settings.supabase_service_role_key.get_secret_value() == "synthetic-legacy-key"
+    for secret in (HEALTH_TOKEN, "synthetic-legacy-key"):
+        assert secret not in repr(settings)
+        assert secret not in settings.model_dump_json()
+
+
+def test_environment_example_does_not_suggest_service_role_key():
+    from pathlib import Path
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text()
+    assert "BIOSAUDE_SUPABASE_SERVICE_ROLE_KEY" not in example
 
 
 def test_session_closes_without_automatic_commit_even_on_error():

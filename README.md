@@ -64,8 +64,11 @@ Resposta padrão da API:
 ```
 
 `/health` indica saúde do processo, sem alegar prontidão de banco ou operação.
-`/health/database` executa apenas `SELECT 1`: 200 quando conectado, 503 quando
-desabilitado ou indisponível. Configuração segura em [docs/database.md](docs/database.md).
+`/health/database` exige `X-Database-Health-Token`, comparado ao segredo
+`BIOSAUDE_DATABASE_HEALTH_TOKEN`: sem configuração ou autorização válida retorna
+403, sem consultar o banco. Após autorização, executa apenas `SELECT 1`: 200
+quando conectado, 503 quando desabilitado ou indisponível. Configuração segura
+em [docs/database.md](docs/database.md).
 O campo legado `external_integrations` refere-se às integrações operacionais
 ainda desabilitadas; a disponibilidade PostgreSQL tem diagnóstico separado.
 Documentação OpenAPI em `/docs`. Em ambientes cloud, requisições locais servem

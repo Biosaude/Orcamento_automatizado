@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "test", "production"] = "development"
     database_url: SecretStr | None = None
+    database_health_token: SecretStr | None = None
     database_ssl_root_cert: str = "/etc/ssl/certs/ca-certificates.crt"
     database_connect_timeout: int = Field(default=5, ge=1, le=30)
     database_statement_timeout_ms: int = Field(default=5000, ge=1, le=30000)
