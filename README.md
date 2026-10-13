@@ -2,8 +2,9 @@
 
 Base do MVP empresarial `biosaude-opme-automation`, preparada no repositório
 `Biosaude/Orcamento_automatizado`. Python 3.12, FastAPI e Streamlit. A entrega
-contém API de saúde, navegação dos oito módulos e contratos de domínio; não há
-persistência, cálculos financeiros, aprovação ou envio de orçamentos.
+contém API de saúde, navegação dos oito módulos, contratos de domínio e camada
+de conexão PostgreSQL/Supabase; não há persistência de entidades, cálculos
+financeiros, aprovação ou envio de orçamentos.
 
 ## Instalação
 
@@ -63,6 +64,13 @@ Resposta padrão da API:
 ```
 
 `/health` indica saúde do processo, sem alegar prontidão de banco ou operação.
+`/health/database` exige `X-Database-Health-Token`, comparado ao segredo
+`BIOSAUDE_DATABASE_HEALTH_TOKEN`: sem configuração ou autorização válida retorna
+403, sem consultar o banco. Após autorização, executa apenas `SELECT 1`: 200
+quando conectado, 503 quando desabilitado ou indisponível. Configuração segura
+em [docs/database.md](docs/database.md).
+O campo legado `external_integrations` refere-se às integrações operacionais
+ainda desabilitadas; a disponibilidade PostgreSQL tem diagnóstico separado.
 Documentação OpenAPI em `/docs`. Em ambientes cloud, requisições locais servem
 para validação interna; a disponibilidade da UI ao usuário depende da plataforma.
 
