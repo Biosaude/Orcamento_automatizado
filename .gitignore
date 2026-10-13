@@ -1,0 +1,54 @@
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local configuration and credentials (only the safe example is tracked)
+.env
+.env.*
+!.env.example
+*.env
+secrets.toml
+*credentials*
+*token*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime output and confidential material: never place real data in the checkout
+data/
+uploads/
+documents/
+documentos/
+pacientes/
+patients/
+confidential/
+confidencial/
+backups/
+logs/
+*.log
+*.pdf
+*.xls
+*.xlsx
+*.xlsm
+*.csv
+*.tsv
+*.doc
+*.docx
+*.dcm
+*.zip
+*.sqlite*
+*.db
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
