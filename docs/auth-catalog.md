@@ -145,3 +145,12 @@ Não modifica colunas, dados ou constraints, nem reescreve os comandos da revis�
 separada, que requer autorização e planejamento de bloqueios em tabelas grandes.
 O startup não aplica migrations. O índice é declarado também na metadata ORM
 para manter o contrato com o Alembic.
+
+## Separação entre banco e identidade
+
+A preparação para Neon altera apenas a infraestrutura de conexão. O JWT/JWKS
+continua no Supabase Auth indicado por BIOSAUDE_SUPABASE_URL; essa variável não
+recebe a URL Neon. Os vínculos e perfis continuam em users no PostgreSQL da
+aplicação e devem ser preservados em qualquer transferência autorizada de dados.
+Trocar o provedor de identidade exige etapa futura independente. Consultar
+`neon-migration.md`; manter BIOSAUDE_CATALOG_ENABLED=false até auditoria.

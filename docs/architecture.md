@@ -69,3 +69,14 @@ perfis, bloqueio de duplicidades e limites de implantação.
 A aplicação não cria políticas RLS ou grants no Supabase; o isolamento desta
 camada não comprova a proteção de PostgREST ou acesso SQL externo. Essas
 configurações existentes precisam de auditoria autorizada antes da implantação.
+
+## Conexão Neon e Alembic
+
+A infraestrutura PostgreSQL aceita Neon sem alterar modelos, constraints,
+revisões ou autorização. `Database` usa a URL operacional e
+`Database.for_migrations` exige a URL administrativa direta, com NullPool e sem
+fallback. TLS é sempre verify-full com CA pública portável ou override explícito.
+O pooler usa timeout local à transação e prepared statements automáticos
+continuam desabilitados. Configuração Windows e etapas autorizadas estão em
+`database.md` e `neon-migration.md`. Supabase Auth permanece independente do
+provedor PostgreSQL; o catálogo continua desabilitado por padrão.

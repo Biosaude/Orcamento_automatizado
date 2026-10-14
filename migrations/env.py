@@ -27,10 +27,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Reutiliza a conexão PostgreSQL segura da aplicação."""
-    database = Database(Settings())
-
-    if database.engine is None:
-        raise RuntimeError("Conexão PostgreSQL não configurada.")
+    database = Database.for_migrations(Settings())
 
     try:
         with database.engine.connect() as connection:
