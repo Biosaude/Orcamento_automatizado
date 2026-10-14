@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     # Habilitar somente após auditoria autorizada de grants/RLS e acessos externos.
     catalog_enabled: bool = False
     database_url: SecretStr | None = None
+    database_migration_url: SecretStr | None = None
     database_health_token: SecretStr | None = None
-    database_ssl_root_cert: str = "/etc/ssl/certs/ca-certificates.crt"
+    database_ssl_root_cert: str | None = None
     database_connect_timeout: int = Field(default=5, ge=1, le=30)
     database_statement_timeout_ms: int = Field(default=5000, ge=1, le=30000)
+    database_migration_statement_timeout_ms: int = Field(default=60000, ge=1, le=300000)
     database_pool_size: int = Field(default=5, ge=1, le=20)
     database_max_overflow: int = Field(default=0, ge=0, le=20)
     database_pool_timeout: int = Field(default=5, ge=1, le=30)

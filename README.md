@@ -3,8 +3,12 @@
 Base do MVP empresarial `biosaude-opme-automation`, preparada no repositório
 `Biosaude/Orcamento_automatizado`. Python 3.12, FastAPI e Streamlit. A entrega
 contém API de saúde, navegação dos oito módulos, contratos de domínio, conexão
-PostgreSQL/Supabase e cadastros autenticados de hospitais/produtos por empresa.
+PostgreSQL compatível com Neon e Supabase e cadastros autenticados de hospitais/produtos por empresa.
 Não há cálculos financeiros, aprovação ou envio de orçamentos.
+
+Preparação Neon pooled/direct e Windows em [conexão PostgreSQL](docs/database.md)
+e [plano de migração](docs/neon-migration.md). Nenhuma migração ou transferência
+de dados é automática. Supabase Auth continua como provedor de identidade.
 
 Configuração de Supabase Auth, perfis e rotas `/api/v1` em
 [autenticação e cadastros](docs/auth-catalog.md). Os vínculos empresariais devem

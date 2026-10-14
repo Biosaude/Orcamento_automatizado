@@ -2,12 +2,15 @@
 
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
+import certifi
 from fastapi import HTTPException, Request
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from backend.app.core.config import Settings
 
@@ -17,42 +20,97 @@ class DatabaseConfigurationError(ValueError):
 
 
 class Database:
-    def __init__(self, settings: Settings):
+    @classmethod
+    def for_migrations(cls, settings: Settings) -> "Database":
+        """Somente URL direta explícita; nunca usa credenciais operacionais como fallback."""
+        return cls(settings, migration=True)
+
+    def __init__(self, settings: Settings, *, migration: bool = False):
         self.engine: Engine | None = None
         self.sessions: sessionmaker[Session] | None = None
-        if settings.database_url is None or not settings.database_url.get_secret_value():
+        secret_url = settings.database_migration_url if migration else settings.database_url
+        if secret_url is None or not secret_url.get_secret_value():
+            if migration:
+                raise DatabaseConfigurationError(
+                    "BIOSAUDE_DATABASE_MIGRATION_URL direta é obrigatória para Alembic."
+                )
             return
         try:
-            url = make_url(settings.database_url.get_secret_value())
+            url = make_url(secret_url.get_secret_value())
+            allowed_query = {"sslmode": {"require", "verify-full"}, "channel_binding": {"require"}}
+            parsed = urlsplit(secret_url.get_secret_value())
+            pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
+            ca_file = settings.database_ssl_root_cert or (
+                "/etc/ssl/certs/ca-certificates.crt"
+                if Path("/etc/ssl/certs/ca-certificates.crt").is_file()
+                else certifi.where()
+            )
             if (
                 url.drivername not in {"postgresql", "postgresql+psycopg"}
                 or not all((url.host, url.username, url.password, url.database))
-                or url.query
-                or not Path(settings.database_ssl_root_cert).is_file()
+                or any(char.isspace() or char in ",/%\\" for char in (url.host or ""))
+                or any(
+                    key not in allowed_query or value not in allowed_query[key]
+                    for key, value in pairs
+                )
+                or len({key for key, _ in pairs}) != len(pairs)
+                or parsed.fragment
+                or (url.port is not None and not 1 <= url.port <= 65535)
+                or not Path(ca_file).is_file()
             ):
                 raise ValueError
-            url = url.set(drivername="postgresql+psycopg")
+            hostname = url.host.lower().rstrip(".")
+            pooled = hostname.split(".")[0].endswith("-pooler") or hostname.endswith(
+                ".pooler.supabase.com"
+            )
+            if migration and pooled:
+                raise ValueError
+            channel_binding = url.query.get("channel_binding")
+            # Parâmetros de confiança nunca ficam na URL passada ao driver.
+            url = url.set(drivername="postgresql+psycopg", query={})
         except (ValueError, SQLAlchemyError, OSError):
             raise DatabaseConfigurationError(
                 "Configuração PostgreSQL inválida; consulte docs/database.md."
             ) from None
+        timeout = (
+            settings.database_migration_statement_timeout_ms
+            if migration
+            else settings.database_statement_timeout_ms
+        )
+        connect_args = {
+            "sslmode": "verify-full",
+            "sslrootcert": ca_file,
+            "connect_timeout": settings.database_connect_timeout,
+            "prepare_threshold": None,
+        }
+        if channel_binding is not None:
+            connect_args["channel_binding"] = channel_binding
+        # PgBouncer transaction pooling não depende de parâmetros de sessão persistentes.
+        if not pooled:
+            connect_args["options"] = f"-c statement_timeout={timeout}"
+        pool_options = (
+            {"poolclass": NullPool}
+            if migration
+            else {
+                "pool_size": settings.database_pool_size,
+                "max_overflow": settings.database_max_overflow,
+                "pool_timeout": settings.database_pool_timeout,
+            }
+        )
         self.engine = create_engine(
             url,
             echo=False,
             hide_parameters=True,
             pool_pre_ping=True,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
-            pool_timeout=settings.database_pool_timeout,
-            connect_args={
-                "sslmode": "verify-full",
-                "sslrootcert": settings.database_ssl_root_cert,
-                "connect_timeout": settings.database_connect_timeout,
-                "options": f"-c statement_timeout={settings.database_statement_timeout_ms}",
-                # Compatível com o transaction pooler; não manter prepared statements.
-                "prepare_threshold": None,
-            },
+            connect_args=connect_args,
+            **pool_options,
         )
+        if pooled:
+
+            @event.listens_for(self.engine, "begin")
+            def set_transaction_timeout(connection):
+                connection.exec_driver_sql(f"SET LOCAL statement_timeout = {timeout}")
+
         self.sessions = sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False)
 
     def probe(self) -> bool:
