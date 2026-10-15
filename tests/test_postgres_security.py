@@ -201,7 +201,7 @@ def test_role_has_minimal_properties_and_no_memberships(secured):
         "TRUNCATE public.hospitals",
         "ALTER TABLE public.hospitals DISABLE ROW LEVEL SECURITY",
         "DROP TABLE public.products",
-        "SET ROLE synthetic_user",
+        "SET ROLE <administrator>",
         "SELECT * FROM public.alembic_version",
         "SELECT * FROM public.quote_requests",
         "SELECT * FROM public.quote_items",
@@ -211,7 +211,11 @@ def test_role_has_minimal_properties_and_no_memberships(secured):
     ],
 )
 def test_administrative_and_unimplemented_operations_denied(secured, statement):
-    _, app, _ = secured
+    admin, app, _ = secured
+    if statement == "SET ROLE <administrator>":
+        with admin.engine.connect() as connection:
+            owner = connection.scalar(text("SELECT current_user"))
+            statement = "SET ROLE " + connection.dialect.identifier_preparer.quote(owner)
     with app.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
         with pytest.raises(DBAPIError) as error:
             connection.exec_driver_sql(statement)
@@ -446,6 +450,12 @@ def test_setting_row_security_off_does_not_bypass_rls(tenants):
 def test_force_rls_also_applies_to_non_superuser_table_owner(secured):
     admin, _, _ = secured
     with admin.engine.begin() as connection:
+        original_owner = connection.scalar(
+            text(
+                "SELECT pg_get_userbyid(relowner) FROM pg_class "
+                "WHERE oid = 'public.hospitals'::regclass"
+            )
+        )
         connection.exec_driver_sql(
             "CREATE ROLE synthetic_rls_owner NOLOGIN NOSUPERUSER NOBYPASSRLS"
         )
@@ -459,7 +469,10 @@ def test_force_rls_also_applies_to_non_superuser_table_owner(secured):
             connection.rollback()
     finally:
         with admin.engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE public.hospitals OWNER TO synthetic_user")
+            connection.exec_driver_sql(
+                "ALTER TABLE public.hospitals OWNER TO "
+                + connection.dialect.identifier_preparer.quote(original_owner)
+            )
             connection.exec_driver_sql("REVOKE USAGE ON SCHEMA public FROM synthetic_rls_owner")
             connection.exec_driver_sql("DROP ROLE synthetic_rls_owner")
 
@@ -534,3 +547,33 @@ def test_future_objects_do_not_gain_automatic_operational_privileges(secured):
             connection.exec_driver_sql("DROP FUNCTION public.synthetic_default_definer()")
             connection.exec_driver_sql("DROP TABLE public.synthetic_future")
             connection.exec_driver_sql("DROP SEQUENCE public.synthetic_future_seq")
+
+
+def test_existing_nologin_role_is_rejected_without_silent_enablement(secured):
+    admin, _, apply = secured
+    with admin.engine.begin() as connection:
+        previous_acl = connection.scalar(
+            text("SELECT datacl::text FROM pg_database WHERE datname = current_database()")
+        )
+        connection.exec_driver_sql("ALTER ROLE biosaude_app NOLOGIN")
+    try:
+        with pytest.raises(PsycopgError) as error:
+            apply()
+        assert error.value.sqlstate == "P0001"
+        assert "NOLOGIN" in str(error.value)
+        with admin.engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    text("SELECT rolcanlogin FROM pg_roles WHERE rolname = 'biosaude_app'")
+                )
+                is False
+            )
+            assert (
+                connection.scalar(
+                    text("SELECT datacl::text FROM pg_database WHERE datname = current_database()")
+                )
+                == previous_acl
+            )
+    finally:
+        with admin.engine.begin() as connection:
+            connection.exec_driver_sql("ALTER ROLE biosaude_app LOGIN")

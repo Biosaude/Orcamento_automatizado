@@ -18,7 +18,7 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1 FROM pg_roles WHERE rolname = 'biosaude_app'
-        AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit)
+        AND (NOT rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit)
     ) OR EXISTS (
         SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
         WHERE r.rolname = 'biosaude_app'
@@ -27,7 +27,7 @@ BEGIN
         WHERE r.rolname = 'biosaude_app'
         AND m.member <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
     ) THEN
-        RAISE EXCEPTION 'Role operacional privilegiada ou com memberships; revisar antes de continuar';
+        RAISE EXCEPTION 'Role operacional NOLOGIN, privilegiada ou com memberships; revisar antes de continuar';
     END IF;
     IF EXISTS (
         SELECT 1 FROM pg_shdepend d JOIN pg_roles r ON r.oid = d.refobjid

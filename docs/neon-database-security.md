@@ -79,7 +79,9 @@ psql "service=biosaude_admin" -X -v ON_ERROR_STOP=1 -f scripts/database/apply_se
 ```
 
 O script cria `biosaude_app` LOGIN **sem senha**, apenas se não existir. Não altera
-senha de role existente. Interrompe se encontrar privilégios administrativos,
+senha de role existente. Interrompe se a role existente for NOLOGIN: definir
+senha não habilita LOGIN, e o script não muda esse estado silenciosamente.
+Também interrompe se encontrar privilégios administrativos,
 membership da app em qualquer role, membros da app além do executor administrativo,
 ownership de qualquer objeto, policies desconhecidas, schemas graváveis, functions
 SECURITY DEFINER executáveis ou acessos residuais a outras tabelas/sequences.
