@@ -1,5 +1,6 @@
 """Cadastros autenticados com escopo obrigatório em cada operação."""
 
+from hashlib import blake2b
 from typing import Annotated
 from uuid import UUID
 
@@ -32,12 +33,19 @@ def me(principal: Reader) -> Principal:
 
 
 def lock_company(session: Session, principal: Principal) -> None:
-    # Serializa mutations da mesma empresa, inclusive a verificação de duplicidade
-    # de hospitais (o schema existente não tem UNIQUE por nome).
+    # Lock transacional compatível com transaction pooling, sem UPDATE em companies.
+    # Colisões do hash apenas serializam empresas extras; não autorizam acesso.
+    if session.get_bind().dialect.name == "postgresql":
+        key = int.from_bytes(
+            blake2b(principal.company_id.bytes, digest_size=8).digest(),
+            byteorder="big",
+            signed=True,
+        )
+        session.execute(select(func.pg_advisory_xact_lock(key)))
     active = session.scalar(
-        select(CompanyORM.id)
-        .where(CompanyORM.id == principal.company_id, CompanyORM.active.is_(True))
-        .with_for_update()
+        select(CompanyORM.id).where(
+            CompanyORM.id == principal.company_id, CompanyORM.active.is_(True)
+        )
     )
     if active is None:
         raise HTTPException(403, "Empresa indisponível")
