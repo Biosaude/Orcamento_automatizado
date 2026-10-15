@@ -80,3 +80,13 @@ O pooler usa timeout local à transação e prepared statements automáticos
 continuam desabilitados. Configuração Windows e etapas autorizadas estão em
 `database.md` e `neon-migration.md`. Supabase Auth permanece independente do
 provedor PostgreSQL; o catálogo continua desabilitado por padrão.
+
+## Segurança SQL operacional
+
+`core/tenant_context.py` vincula subject verificado e empresa autorizada à
+transação SQLAlchemy, reaplicando-os em cada begin. Os filtros da API continuam
+obrigatórios; o contexto apoia policies RLS do pacote SQL manual, não valida JWT
+no banco nem protege credenciais de backend comprometidas. Locks transacionais
+advisory substituem FOR UPDATE de companies para eliminar esse grant de escrita.
+`neon-database-security.md` descreve a aplicação manual e reversão de roles/grants/
+RLS; não há execução por startup ou Alembic nem habilitação automática de catálogo.

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import Settings
 from backend.app.core.database import get_session
+from backend.app.core.tenant_context import bind_context
 from backend.app.domain.models import UserRole
 from backend.app.persistence.models import CompanyORM, UserORM
 
@@ -94,6 +95,7 @@ def current_principal(
     session: Annotated[Session, Depends(get_session)],
     company_id: Annotated[UUID | None, Header(alias="X-Company-ID")] = None,
 ) -> Principal:
+    bind_context(session, subject)
     query = (
         select(UserORM)
         .join(CompanyORM)
@@ -110,6 +112,7 @@ def current_principal(
         role = UserRole(membership.role)
     except ValueError:
         raise HTTPException(403, "Perfil sem permissão") from None
+    bind_context(session, subject, str(membership.company_id))
     return Principal(membership.id, membership.company_id, role)
 
 

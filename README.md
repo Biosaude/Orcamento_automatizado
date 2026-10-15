@@ -9,6 +9,9 @@ Não há cálculos financeiros, aprovação ou envio de orçamentos.
 Preparação Neon pooled/direct e Windows em [conexão PostgreSQL](docs/database.md)
 e [plano de migração](docs/neon-migration.md). Nenhuma migração ou transferência
 de dados é automática. Supabase Auth continua como provedor de identidade.
+Separação de contas, grants/RLS, verificações e reversão manual em
+[segurança Neon](docs/neon-database-security.md); nenhuma alteração de produção
+é aplicada pelo backend.
 
 Configuração de Supabase Auth, perfis e rotas `/api/v1` em
 [autenticação e cadastros](docs/auth-catalog.md). Os vínculos empresariais devem

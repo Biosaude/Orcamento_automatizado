@@ -90,9 +90,9 @@ são comparados sem distinção de caixa dentro da empresa; duplicidades retorna
 Entradas inválidas retornam 422; perfil sem permissão, 403. Erros de banco são
 tratados sem retornar SQL, credenciais ou detalhes internos.
 
-Cada escrita bloqueia a linha da empresa (`SELECT ... FOR UPDATE`) na transação
+Cada escrita adquire um lock advisory transacional por empresa na transação
 antes de conferir duplicidades e gravar. Isso serializa escritas deste módulo por
-empresa, sem migrations ou locks globais. A constraint de código do produto é
+empresa, sem migrations ou permissões de UPDATE em companies. A constraint de código do produto é
 preservada. Como o schema de hospitais não tem UNIQUE por nome, escritores externos
 que não adotem esse protocolo ainda podem criar duplicidades; uma constraint
 adicional exigirá uma tarefa de schema separada. O isolamento esperado do
@@ -154,3 +154,13 @@ recebe a URL Neon. Os vínculos e perfis continuam em users no PostgreSQL da
 aplicação e devem ser preservados em qualquer transferência autorizada de dados.
 Trocar o provedor de identidade exige etapa futura independente. Consultar
 `neon-migration.md`; manter BIOSAUDE_CATALOG_ENABLED=false até auditoria.
+
+## Pacote manual de segurança PostgreSQL
+
+A conta operacional e as políticas RLS testadas são preparadas em
+`scripts/database/apply_security.sql`, sem aplicação automática ou migração
+Alembic. O backend instala contexto local à transação a partir do JWT verificado
+e vínculo autorizado, preservando os filtros explícitos da API. Consulte
+`neon-database-security.md` para privilégios mínimos, confiança do backend,
+procedimento de aprovação, testes e reversão. Catálogo continua desabilitado
+até a validação externa; o PR não modifica Neon/Supabase reais.
